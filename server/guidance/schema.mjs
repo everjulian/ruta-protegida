@@ -1,10 +1,10 @@
 // -----------------------------------------------------------------------------
-// Esquemas y validación estricta de ENTRADA y SALIDA.
-// - Entrada: solo contexto estructurado (enums controlados). Se rechaza todo
-//   campo desconocido y todo valor fuera de catálogo.
-// - Salida del modelo: se valida contra un esquema estricto y un filtro de
-//   frases fuera de alcance (conclusiones jurídicas, fuga de secretos, enlaces).
-//   Si no cumple, el llamador usa el fallback determinístico.
+// Esquemas y validación estricta de ENTRADA y SALIDA (formato v2).
+// - Entrada: solo contexto estructurado (enums controlados).
+// - Salida del modelo: formato { summary, signals, actions, human_review,
+//   human_review_reason, cta, disclaimer }. Validación PERMISIVA con el lenguaje
+//   natural pero ESTRICTA en lo jurídico: source_id debe existir en LEGAL_CONTEXT,
+//   sin conclusiones prohibidas, sin URLs inventadas. Si no cumple → fallback.
 // -----------------------------------------------------------------------------
 import {
   caseIds,
@@ -12,31 +12,30 @@ import {
   actionIds,
   questionIds,
   questionOptionValues,
+  allowedLegalForCase,
 } from './data.mjs';
 import { LIMITS } from './sanitize.mjs';
 
-// --- Frases prohibidas en la salida del modelo (fuera de alcance) ------------
+// Frases prohibidas: conclusiones jurídicas y fuga de secretos (no lenguaje común).
 const FORBIDDEN = [
+  /te\s+discriminaron/i,
   /s[ií]\s+hubo\s+discriminaci[oó]n/i,
   /es\s+un\s+caso\s+de\s+discriminaci[oó]n/i,
+  /tu\s+despido\s+es\s+ilegal/i,
   /tienes?\s+un\s+caso\b/i,
   /vas?\s+a\s+ganar/i,
+  /debes?\s+demandar/i,
   /te\s+garantiz/i,
-  /con\s+seguridad\s+(ganar|proceder)/i,
   /system\s*prompt/i,
   /api[_\s-]?key|clave\s+de\s+api/i,
-  /instrucciones\s+internas/i,
 ];
 
 const hasForbidden = (s) => typeof s === 'string' && FORBIDDEN.some((re) => re.test(s));
 const hasUrl = (s) => typeof s === 'string' && /https?:\/\//i.test(s);
 const badText = (s, max) =>
-  typeof s !== 'string' || s.length === 0 || s.length > max || hasForbidden(s) || hasUrl(s);
+  typeof s !== 'string' || s.trim().length === 0 || s.length > max || hasForbidden(s) || hasUrl(s);
 
-/**
- * Valida la ENTRADA. Devuelve { ok, value|errors }.
- * Estructura permitida: { caseId, phase, answers, userText? }.
- */
+// --- ENTRADA -----------------------------------------------------------------
 export function validateInput(body) {
   const errors = [];
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -46,7 +45,6 @@ export function validateInput(body) {
   for (const k of Object.keys(body)) {
     if (!allowedKeys.has(k)) errors.push(`campo no permitido: ${k}`);
   }
-
   const { caseId, phase, answers } = body;
   if (!caseIds.has(caseId)) errors.push('caseId inválido');
   if (!phaseIds.has(phase)) errors.push('phase inválida');
@@ -56,8 +54,7 @@ export function validateInput(body) {
     if (typeof answers !== 'object' || answers === null || Array.isArray(answers)) {
       errors.push('answers inválido');
     } else {
-      const keys = Object.keys(answers);
-      if (keys.length > LIMITS.maxAnswers) errors.push('demasiadas respuestas');
+      if (Object.keys(answers).length > LIMITS.maxAnswers) errors.push('demasiadas respuestas');
       for (const [qid, val] of Object.entries(answers)) {
         if (!questionIds.has(qid)) {
           errors.push(`pregunta desconocida: ${qid}`);
@@ -83,75 +80,60 @@ export function validateInput(body) {
   return { ok: true, value: { caseId, phase, answers: cleanAnswers, userText } };
 }
 
-/**
- * Valida la SALIDA del modelo. `allowed` trae los ids/preguntas válidos.
- * Devuelve { ok, value } o { ok:false }.
- */
-export function validateModelOutput(obj, allowed) {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { ok: false };
-
-  // intro (opcional pero, si viene, debe ser texto sano)
-  if (obj.intro !== undefined && badText(obj.intro, 280)) return { ok: false };
-
-  // micro: [{ questionId ∈ preguntas respondidas, text sano }]
-  const micro = [];
-  if (obj.micro !== undefined) {
-    if (!Array.isArray(obj.micro) || obj.micro.length > 12) return { ok: false };
-    for (const m of obj.micro) {
-      if (!m || typeof m !== 'object') return { ok: false };
-      if (!allowed.questionIds.has(m.questionId)) return { ok: false };
-      if (badText(m.text, 300)) return { ok: false };
-      micro.push({ questionId: m.questionId, text: m.text });
-    }
-  }
-
-  // review: [string sano]
-  const review = [];
-  if (obj.review !== undefined) {
-    if (!Array.isArray(obj.review) || obj.review.length > 6) return { ok: false };
-    for (const r of obj.review) {
-      if (badText(r, 200)) return { ok: false };
-      review.push(r);
-    }
-  }
-
-  // actionOrder: subconjunto de ids de acciones permitidas
-  const actionOrder = [];
-  if (obj.actionOrder !== undefined) {
-    if (!Array.isArray(obj.actionOrder) || obj.actionOrder.length > 8) return { ok: false };
-    for (const id of obj.actionOrder) {
-      if (typeof id !== 'string' || !allowed.actionIds.has(id)) return { ok: false };
-      actionOrder.push(id);
-    }
-  }
-
-  return { ok: true, value: { intro: obj.intro, micro, review, actionOrder } };
-}
-
-/** Conjuntos permitidos para validar una salida en el contexto actual. */
-export function allowedForContext(answers) {
+/** Conjuntos permitidos para validar la salida en el contexto actual. */
+export function allowedForContext(caseId, answers) {
   return {
     questionIds: new Set(Object.keys(answers || {})),
     actionIds,
+    legalCodes: new Set(allowedLegalForCase(caseId).map((s) => s.source_id)),
+  };
+}
+
+// --- SALIDA DEL MODELO -------------------------------------------------------
+export function validateModelOutput(obj, allowed) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { ok: false };
+
+  if (badText(obj.summary, 500)) return { ok: false };
+
+  // signals
+  const signals = [];
+  if (!Array.isArray(obj.signals) || obj.signals.length > 3) return { ok: false };
+  for (const s of obj.signals) {
+    if (!s || typeof s !== 'object') return { ok: false };
+    if (badText(s.title, 140)) return { ok: false };
+    if (badText(s.explanation, 400)) return { ok: false };
+    let sourceId = s.source_id ?? null;
+    if (sourceId !== null) {
+      if (typeof sourceId !== 'string' || !allowed.legalCodes.has(sourceId)) return { ok: false };
+    }
+    signals.push({ title: s.title, explanation: s.explanation, source_id: sourceId });
+  }
+
+  // actions
+  const actions = [];
+  if (!Array.isArray(obj.actions) || obj.actions.length > 4) return { ok: false };
+  for (const a of obj.actions) {
+    if (!a || typeof a !== 'object') return { ok: false };
+    if (!['alta', 'media', 'baja'].includes(a.priority)) return { ok: false };
+    if (badText(a.action, 240)) return { ok: false };
+    actions.push({ priority: a.priority, action: a.action });
+  }
+
+  // cta.message (label lo fija el servidor)
+  if (!obj.cta || typeof obj.cta !== 'object') return { ok: false };
+  if (badText(obj.cta.message, 240)) return { ok: false };
+
+  return {
+    ok: true,
+    value: { summary: obj.summary, signals, actions, ctaMessage: obj.cta.message },
   };
 }
 
 /**
- * Construye el esquema JSON estricto para "structured outputs" de OpenAI,
- * fijando por enum los valores válidos (ids de preguntas y de acciones) para
- * que el modelo no pueda inventar ni confundir etiquetas con ids.
- * @param {{questionIds:Set<string>, actionIds:Set<string>}} allowed
+ * Esquema JSON estricto (structured outputs) según el formato del system prompt.
+ * @param {{legalCodes?:Set<string>}} [allowed]
  */
-export function buildOutputSchema(allowed) {
-  const qIds = [...(allowed?.questionIds || [])];
-  const aIds = [...(allowed?.actionIds || [])];
-  const questionIdField = qIds.length
-    ? { type: 'string', enum: qIds, description: 'Id de la pregunta respondida.' }
-    : { type: 'string' };
-  const actionItem = aIds.length
-    ? { type: 'string', enum: aIds }
-    : { type: 'string' };
-
+export function buildOutputSchema() {
   return {
     name: 'ruta_protegida_guidance',
     strict: true,
@@ -159,47 +141,57 @@ export function buildOutputSchema(allowed) {
       type: 'object',
       additionalProperties: false,
       properties: {
-        intro: {
-          type: 'string',
-          description:
-            'Encuadre breve (1-2 frases), empático y prudente. Sin conclusiones jurídicas.',
-        },
-        micro: {
+        summary: { type: 'string' },
+        signals: {
           type: 'array',
-          description:
-            'Una explicación breve por cada pregunta respondida: por qué ESE dato puede ser relevante. No repitas el texto de la pregunta.',
           items: {
             type: 'object',
             additionalProperties: false,
             properties: {
-              questionId: questionIdField,
-              text: {
-                type: 'string',
-                description:
-                  'Explicación prudente de 1-2 frases. Usa "puede ser relevante", "conviene revisar". No afirmes discriminación.',
-              },
+              title: { type: 'string' },
+              explanation: { type: 'string' },
+              source_id: { type: ['string', 'null'] },
             },
-            required: ['questionId', 'text'],
+            required: ['title', 'explanation', 'source_id'],
           },
         },
-        review: {
+        actions: {
           type: 'array',
-          description: 'Qué conviene revisar (frases breves y prudentes).',
-          items: { type: 'string' },
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              priority: { type: 'string', enum: ['alta', 'media', 'baja'] },
+              action: { type: 'string' },
+            },
+            required: ['priority', 'action'],
+          },
         },
-        actionOrder: {
-          type: 'array',
-          description:
-            'IDs de acciones del catálogo (campo id), en orden de prioridad recomendado. Usa EXACTAMENTE los valores id, no las etiquetas.',
-          items: actionItem,
+        human_review: { type: 'boolean' },
+        human_review_reason: { type: ['string', 'null'] },
+        cta: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            label: { type: 'string' },
+            message: { type: 'string' },
+          },
+          required: ['label', 'message'],
         },
+        disclaimer: { type: 'string' },
       },
-      required: ['intro', 'micro', 'review', 'actionOrder'],
+      required: [
+        'summary',
+        'signals',
+        'actions',
+        'human_review',
+        'human_review_reason',
+        'cta',
+        'disclaimer',
+      ],
     },
   };
 }
 
-// Esquema por defecto (sin enums) para compatibilidad.
-export const OUTPUT_JSON_SCHEMA = buildOutputSchema({});
-
+export const OUTPUT_JSON_SCHEMA = buildOutputSchema();
 export { FORBIDDEN };

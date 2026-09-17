@@ -7,8 +7,8 @@ import { state, currentCase, phaseIndex, requiredAnswered } from '../lib/state.j
 import { button, hint, legalNote } from '../lib/ui.js';
 
 // =============================================================================
-// Vista de la ruta: navegación por 4 fases (Entender→Preparar→Conocer→Actuar).
-// Todo el contenido dinámico proviene de state.guidance (getGuidance).
+// Vista de la ruta: 4 fases (Entender→Preparar→Conocer→Actuar).
+// El contenido dinámico proviene de state.guidance (getGuidance, forma v2).
 // =============================================================================
 export function route() {
   const g = state.guidance;
@@ -20,7 +20,6 @@ export function route() {
   </div>`;
 }
 
-// --- Navegación visual de fases ---------------------------------------------
 function phaseNav() {
   const cur = phaseIndex(state.phase);
   const max = phaseIndex(state.maxPhase);
@@ -64,7 +63,6 @@ function navRow(nextLabel, disabled = false) {
 
 // --- FASE 1 · ENTENDER -------------------------------------------------------
 function entender(g) {
-  // Sin situación elegida: mostrar el selector.
   if (!state.caseId) {
     return (
       heading(
@@ -82,8 +80,6 @@ function entender(g) {
   }
 
   const c = currentCase();
-  const micro = Object.fromEntries((g?.micro || []).map((m) => [m.questionId, m.text]));
-
   const questionsHtml = questionsForCase(state.caseId)
     .map((q) => {
       const chosen = state.answers[q.id];
@@ -93,10 +89,11 @@ function entender(g) {
             `<label class="option"><input type="radio" name="${q.id}" value="${o.value}" ${chosen === o.value ? 'checked' : ''}>${o.value}</label>`,
         )
         .join('');
-      const feedback =
-        chosen && micro[q.id]
-          ? `<p class="micro-feedback">${icon('shield')}<span>${micro[q.id]}</span></p>`
-          : '';
+      // Microfeedback instantáneo y determinístico (viene de questions.js).
+      const opt = chosen ? findOption(q, chosen) : null;
+      const feedback = opt?.micro
+        ? `<p class="micro-feedback">${icon('shield')}<span>${opt.micro}</span></p>`
+        : '';
       return `<fieldset class="question"><legend>${q.prompt}</legend><div class="options">${opts}</div>${feedback}</fieldset>`;
     })
     .join('');
@@ -108,48 +105,46 @@ function entender(g) {
       'Cada respuesta te muestra por qué ese dato puede ser relevante. No sacamos conclusiones.',
     ) +
     `<div class="case-chip"><span class="icon-box">${icon(c.icon)}</span><div><strong>${c.short}</strong><p>${c.title}</p></div><button class="link-button" data-action="change-case">Cambiar</button></div>` +
-    (g?.intro ? `<p class="ai-intro">${g.intro}</p>` : '') +
     questionsHtml +
-    summaryBlock(g) +
+    signalsBlock(g) +
     actionsBlock(g, true) +
     aiNote(g) +
     navRow('Preparar evidencia', !requiredAnswered())
   );
 }
 
-// Nota visible cuando la orientación fue personalizada con IA.
-function aiNote(g) {
-  if (g?.meta?.source !== 'ai' || !g?.note) return '';
-  return `<p class="ai-note">${icon('help')}<span>${g.note}</span></p>`;
+// "Lo que identificamos hasta ahora" (a partir de signals; aparece con ≥2 respuestas)
+function signalsBlock(g) {
+  const signals = g?.signals || [];
+  if (!signals.length) return '';
+  return (
+    (g.intro ? `<p class="ai-intro">${g.intro}</p>` : '') +
+    `<div class="identify-card"><span class="eyebrow">LO QUE IDENTIFICAMOS HASTA AHORA</span>
+      <ul class="signal-list">${signals
+        .map(
+          (s) =>
+            `<li>${icon('search')}<div><strong>${s.title}</strong><p>${s.explanation}</p>${s.sourceUrl ? `<a class="signal-src" href="${s.sourceUrl}" target="_blank" rel="noopener noreferrer">¿Por qué importa esto? ${icon('external')}</a>` : ''}</div></li>`,
+        )
+        .join('')}</ul>
+      <p class="micro">Esto no determina si hubo discriminación: es un punto de partida para conversar con orientación.</p>
+    </div>`
+  );
 }
 
-// "Lo que identificamos hasta ahora" (aparece tras ≥2 respuestas)
-function summaryBlock(g) {
-  if (!g?.summary) return '';
-  const { facts, review } = g.summary;
-  return `<div class="identify-card"><span class="eyebrow">LO QUE IDENTIFICAMOS HASTA AHORA</span>
-    <div class="identify-cols">
-      <div><h3>Hechos que señalaste</h3><ul class="tick-list">${facts.map((f) => `<li>${icon('check')}<span>${f}</span></li>`).join('')}</ul></div>
-      ${review.length ? `<div><h3>Qué conviene revisar</h3><ul class="tick-list soft">${review.map((r) => `<li>${icon('search')}<span>${r}</span></li>`).join('')}</ul></div>` : ''}
-    </div>
-    <p class="micro">Esto no determina si hubo discriminación: es un punto de partida para conversar con orientación.</p>
-  </div>`;
-}
-
-// "Qué puedes hacer ahora" (acciones priorizadas). preview=true muestra versión compacta.
+// "Qué puedes hacer ahora" (acciones con prioridad)
 function actionsBlock(g, preview = false) {
   const list = g?.actions || [];
   if (!list.length) return '';
   const items = (preview ? list.slice(0, 3) : list)
     .map(
       (a) =>
-        `<li class="action-item ${a.urgent ? 'urgent' : ''}">${icon(a.urgent ? 'alert' : 'check')}<div><strong>${a.label}</strong>${a.detail ? `<p>${a.detail}</p>` : ''}</div>${a.cta ? `<button class="button primary action-cta" data-action="contact">${icon('message')} Contactar</button>` : ''}</li>`,
+        `<li class="action-item ${a.priority === 'alta' ? 'urgent' : ''}">${icon(a.priority === 'alta' ? 'alert' : 'check')}<div><strong>${a.text}</strong>${a.detail ? `<p>${a.detail}</p>` : ''}</div><span class="prio prio-${a.priority}">${a.priority}</span></li>`,
     )
     .join('');
   return `<div class="actions-card"><h3>Qué puedes hacer ahora</h3><ul class="action-list">${items}</ul></div>`;
 }
 
-// --- FASE 2 · PREPARAR (evidencia adaptada) ---------------------------------
+// --- FASE 2 · PREPARAR -------------------------------------------------------
 function preparar(g) {
   const ev = (g?.evidence || []).slice(0, 8);
   const checklist = ev
@@ -173,7 +168,7 @@ function preparar(g) {
   );
 }
 
-// --- FASE 3 · CONOCER (protecciones + respaldo jurídico) --------------------
+// --- FASE 3 · CONOCER --------------------------------------------------------
 function conocer(g) {
   const legal = g?.legal || [];
   const eduHtml = protections
@@ -222,16 +217,25 @@ function actuar(g) {
   );
 }
 
-// --- CTA persistente en todo el recorrido -----------------------------------
+// CTA persistente (usa el mensaje/urgencia de la orientación)
 function ctaBar(g) {
   const cta = g?.cta;
   if (!cta?.visible) return '';
   const high = cta.urgency === 'high';
+  const msg =
+    high && cta.reason
+      ? cta.reason
+      : cta.message || 'Puedes hablar con CEPVVS en cualquier momento del recorrido.';
   return `<aside class="cta-bar ${high ? 'high' : ''}" role="note">
-    <div>${icon(high ? 'alert' : 'message')}<span>${high && cta.reason ? cta.reason : 'Puedes hablar con CEPVVS en cualquier momento del recorrido.'}</span></div>
+    <div>${icon(high ? 'alert' : 'message')}<span>${msg}</span></div>
     <button class="button ${high ? 'primary' : 'secondary'}" data-action="contact">${icon('message')} Hablar con CEPVVS</button>
   </aside>`;
 }
 
-// Exportado por compatibilidad (algunas vistas podrían referenciarlo).
+// Nota visible cuando la orientación fue personalizada con IA.
+function aiNote(g) {
+  if (g?.meta?.source !== 'ai' || !g?.note) return '';
+  return `<p class="ai-note">${icon('help')}<span>${g.note}</span></p>`;
+}
+
 export const phaseFlow = phaseOrder;

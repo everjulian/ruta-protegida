@@ -1,26 +1,28 @@
 // -----------------------------------------------------------------------------
-// Proveedor determinístico local de orientación.
-// Toma un Context y arma un GuidanceResult a partir de los datos declarativos.
-// No hace red ni envía datos: todo se calcula en el dispositivo.
+// Proveedor determinístico local de orientación (fuente de verdad + fallback).
+// Produce SIEMPRE la forma unificada v2 que también genera la IA, para que la
+// interfaz renderice igual venga de reglas o del modelo.
 //
-// Para sustituirlo/complementarlo por IA en el futuro, basta con crear otro
-// proveedor con la misma firma (ver types.js: GuidanceProvider) y elegirlo en
-// index.js. La interfaz de usuario no cambia.
+// No hace red ni envía datos: todo se calcula en el dispositivo.
 // -----------------------------------------------------------------------------
 import { cases } from '../../data/cases.js';
 import { questions, findOption } from '../../data/questions.js';
 import { judgments } from '../../data/judgments.js';
 import {
-  evidenceCatalog,
   evidenceRules,
   evidenceDefault,
+  evidenceCatalog,
   findEvidence,
 } from '../../data/evidence.js';
 import { actions } from '../../data/actions.js';
 
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
+export const DISCLAIMER =
+  'Esta orientación es informativa y no reemplaza asesoría jurídica profesional.';
+const CTA_MESSAGE =
+  'Cuéntanos tu situación y te orientamos gratis; no necesitas tener todos los documentos.';
 
-// Etiquetas que aporta el propio caso elegido (además de las respuestas).
+// Etiquetas que aporta el caso elegido (además de las respuestas).
 const caseFlags = {
   trato: ['trato'],
   presion: ['presion'],
@@ -32,24 +34,55 @@ const caseFlags = {
   duda: [],
 };
 
-// Frase de "qué conviene revisar" por etiqueta.
-const reviewByFlag = {
-  empleador_conocia: 'Conviene revisar qué se sabía del diagnóstico y desde cuándo.',
-  post_conocimiento:
-    'Conviene revisar el orden de los hechos respecto al conocimiento del diagnóstico.',
-  coincide_conocimiento:
-    'Conviene revisar los hechos cercanos al momento en que conocieron el diagnóstico.',
-  cambio_funciones: 'Conviene comparar funciones, trato y evaluaciones antes y después.',
-  presion: 'Conviene conservar mensajes y no firmar documentos sin orientación.',
-  despido: 'Conviene revisar los motivos comunicados y los plazos aplicables.',
-  posible_despido: 'Conviene prepararse antes de cualquier reunión o firma.',
-  divulgacion: 'Conviene documentar cómo se difundió la información de salud.',
-  solicitud_datos: 'Conviene revisar con qué finalidad se solicitó la información.',
-  salud: 'Conviene reunir recomendaciones médicas sobre tus tareas.',
-  hubo_cambios: 'Conviene detallar qué cambió exactamente y desde cuándo.',
+// Título + explicación de cada posible "indicio" (para la sección de señales).
+const signalByFlag = {
+  empleador_conocia: {
+    title: 'El empleador conocía el diagnóstico',
+    explanation:
+      'Puede ser relevante para revisar el contexto. Por sí solo no indica discriminación.',
+  },
+  post_conocimiento: {
+    title: 'El problema empezó después de que lo conocieran',
+    explanation: 'El orden de los hechos puede ser relevante para el análisis.',
+  },
+  coincide_conocimiento: {
+    title: 'El problema coincidió con que conocieran el diagnóstico',
+    explanation: 'Conviene revisar los hechos cercanos a ese momento junto con otros datos.',
+  },
+  cambio_funciones: {
+    title: 'Hubo un cambio de funciones o trato',
+    explanation: 'Conviene comparar tus funciones y evaluaciones antes y después.',
+  },
+  despido: {
+    title: 'Se produjo un despido',
+    explanation: 'Conviene revisar los motivos comunicados y los plazos aplicables.',
+  },
+  posible_despido: {
+    title: 'Hay un posible despido en curso',
+    explanation: 'Conviene prepararse antes de cualquier reunión o firma.',
+  },
+  presion: {
+    title: 'Hubo presión o comentarios',
+    explanation: 'Guardar registro de mensajes y reuniones puede ayudar.',
+  },
+  divulgacion: {
+    title: 'Se difundió o solicitó información de salud',
+    explanation: 'Toca tu intimidad; conviene documentar cómo ocurrió.',
+  },
+  solicitud_datos: {
+    title: 'Te solicitaron datos de salud',
+    explanation: 'Conviene revisar con qué finalidad se pidió esa información.',
+  },
+  salud: {
+    title: 'La salud afecta algunas tareas',
+    explanation: 'Puede valorarse una adaptación o reubicación adecuada.',
+  },
+  hubo_cambios: {
+    title: 'Hubo cambios en trato o evaluaciones',
+    explanation: 'Detallar qué cambió y desde cuándo ayuda a revisarlo.',
+  },
 };
 
-// Etiquetas que elevan la urgencia del CTA de contacto.
 const urgentFlags = ['despido', 'posible_despido', 'presion', 'divulgacion', 'solicitud_datos'];
 const urgentReason = {
   despido: 'Hay un despido de por medio; conviene orientación pronto.',
@@ -81,32 +114,25 @@ export function deriveFlags(caseId, answers = {}) {
   return uniq(flags);
 }
 
-function buildMicro(answers) {
-  const micro = [];
-  for (const q of questions) {
-    const value = answers[q.id];
-    if (!value) continue;
-    const opt = findOption(q, value);
-    if (opt?.micro) micro.push({ questionId: q.id, text: opt.micro });
+function buildSignals(flags, answered) {
+  if (answered < 2) return [];
+  const ordered = [
+    ...urgentFlags.filter((f) => flags.includes(f)),
+    ...flags.filter((f) => !urgentFlags.includes(f)),
+  ];
+  const out = [];
+  for (const f of ordered) {
+    const s = signalByFlag[f];
+    if (s) out.push({ title: s.title, explanation: s.explanation, sourceId: null, sourceUrl: null });
+    if (out.length >= 3) break;
   }
-  return micro;
+  return out;
 }
 
-function buildSummary(answers, flags) {
-  const answered = Object.keys(answers).filter((k) => answers[k]);
-  // Requisito: el resumen aparece tras 2–3 respuestas, no antes.
-  if (answered.length < 2) return null;
-
-  const facts = [];
-  for (const q of questions) {
-    const value = answers[q.id];
-    if (!value) continue;
-    const opt = findOption(q, value);
-    if (opt?.fact) facts.push(opt.fact);
-  }
-
-  const review = uniq(flags.map((f) => reviewByFlag[f]).filter(Boolean));
-  return { facts, review };
+function priorityLabel(a) {
+  if (a.urgent) return 'alta';
+  if (a.priority >= 70) return 'media';
+  return 'baja';
 }
 
 function buildActions(flags, caseId) {
@@ -114,20 +140,12 @@ function buildActions(flags, caseId) {
     .filter((a) => matchWhen(a.when, flags, caseId))
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 4)
-    .map((a) => ({
-      id: a.id,
-      label: a.label,
-      detail: a.detail,
-      priority: a.priority,
-      urgent: Boolean(a.urgent),
-      cta: Boolean(a.cta),
-    }));
+    .map((a) => ({ priority: priorityLabel(a), text: a.label, detail: a.detail, cta: Boolean(a.cta) }));
 }
 
 function buildEvidence(flags, caseId) {
   const rule = evidenceRules.find((r) => matchWhen(r.when, flags, caseId));
   const ids = rule ? rule.prioritize : evidenceDefault;
-  // Completa con el resto del catálogo, mantediendo el orden priorizado primero.
   const ordered = uniq([...ids, ...evidenceCatalog.map((e) => e.id)]);
   return ordered
     .map((id) => findEvidence(id))
@@ -137,8 +155,7 @@ function buildEvidence(flags, caseId) {
 
 function buildLegal(caseId) {
   const c = cases.find((x) => x.id === caseId);
-  const idxs = c?.legal || [];
-  return idxs
+  return (c?.legal || [])
     .map((i) => judgments[i])
     .filter(Boolean)
     .map((j) => ({ code: j.code, plainWhy: j.why, url: j.url }));
@@ -150,26 +167,31 @@ function buildCta(flags) {
     visible: true,
     urgency: hit ? 'high' : 'normal',
     reason: hit ? urgentReason[hit] : null,
+    message: CTA_MESSAGE,
   };
 }
 
 /**
- * Genera la orientación a partir del contexto (síncrono internamente).
+ * Genera la orientación (forma v2) a partir del contexto.
  * @param {import('./types.js').Context} context
- * @returns {import('./types.js').GuidanceResult}
  */
 export function buildGuidance(context) {
   const caseId = context?.caseId ?? null;
   const answers = context?.answers ?? {};
+  const answered = Object.keys(answers).filter((k) => answers[k]).length;
   const flags = deriveFlags(caseId, answers);
 
   return {
-    micro: buildMicro(answers),
-    summary: buildSummary(answers, flags),
+    intro:
+      answered >= 2
+        ? 'Con lo que compartiste podemos ordenar algunos hechos y ver qué conviene revisar. Es orientación informativa, no una conclusión.'
+        : null,
+    signals: buildSignals(flags, answered),
     actions: buildActions(flags, caseId),
     evidence: buildEvidence(flags, caseId),
     legal: buildLegal(caseId),
     cta: buildCta(flags),
+    note: DISCLAIMER,
     meta: { source: 'local-rules', version: VERSION },
   };
 }

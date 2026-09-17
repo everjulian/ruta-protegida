@@ -21,13 +21,17 @@ export const questionOptionValues = new Map(
   questions.map((q) => [q.id, new Set(q.options.map((o) => o.value))]),
 );
 
-/** Fuentes jurídicas permitidas para un caso (las únicas que puede citar el modelo). */
+/**
+ * Fuentes jurídicas permitidas para un caso (LEGAL_CONTEXT): las únicas que el
+ * modelo puede citar. `source_id` es el identificador estable (el código de la
+ * sentencia) que el modelo debe usar en signals[].source_id.
+ */
 export function allowedLegalForCase(caseId) {
   const c = cases.find((x) => x.id === caseId);
   return (c?.legal || [])
     .map((i) => judgments[i])
     .filter(Boolean)
-    .map((j) => ({ code: j.code, theme: j.theme, why: j.why, url: j.url }));
+    .map((j) => ({ source_id: j.code, tema: j.theme, resumen: j.why, url: j.url }));
 }
 
 export { cases, actions, judgments, questions };
