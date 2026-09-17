@@ -10,6 +10,10 @@ import { buildGuidance } from './rules.js';
 import { questionsForCase } from '../../data/questions.js';
 
 const API_BASE = (import.meta.env.PUBLIC_GUIDANCE_API || '').replace(/\/$/, '');
+// Endpoint: la URL configurada (cross-origin, p. ej. GitHub Pages → Vercel) o,
+// si no hay ninguna, la ruta relativa del mismo origen (cuando el sitio y la
+// función viven juntos, p. ej. servidos ambos por Vercel).
+const ENDPOINT = API_BASE ? `${API_BASE}/api/guidance` : '/api/guidance';
 const TIMEOUT_MS = 9000;
 
 function isGuidanceV2(d) {
@@ -26,12 +30,12 @@ function allAnswered(context) {
 export const remoteProvider = {
   async getGuidance(context) {
     const local = () => buildGuidance(context);
-    if (!API_BASE || !allAnswered(context)) return local();
+    if (!allAnswered(context)) return local();
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(`${API_BASE}/api/guidance`, {
+      const res = await fetch(ENDPOINT, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: controller.signal,

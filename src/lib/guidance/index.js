@@ -6,14 +6,13 @@
 // se crea otro proveedor con la misma firma y se cambia esta única línea; las
 // vistas no se tocan.
 // -----------------------------------------------------------------------------
-import { localRulesProvider } from './rules.js';
 import { remoteProvider } from './remote.js';
 
-// Proveedor activo:
-// - Si PUBLIC_GUIDANCE_API está configurado, usa el endpoint server-side
-//   (con IA) y cae al motor local ante cualquier fallo.
-// - Si no, usa solo el motor determinístico local.
-const provider = import.meta.env.PUBLIC_GUIDANCE_API ? remoteProvider : localRulesProvider;
+// Proveedor activo: el remoto. Internamente llama al endpoint /api/guidance
+// (absoluto si hay PUBLIC_GUIDANCE_API, o relativo del mismo origen en Vercel)
+// solo cuando corresponde, y cae al motor determinístico local ante cualquier
+// fallo o si no hay endpoint disponible.
+const provider = remoteProvider;
 
 /**
  * Devuelve la orientación para un contexto dado.
