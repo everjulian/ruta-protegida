@@ -14,6 +14,14 @@ const {
 
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 
+// Origen del endpoint de IA (si está configurado), para permitirlo en connect-src.
+let guidanceOrigin = '';
+try {
+  guidanceOrigin = new URL(import.meta.env.PUBLIC_GUIDANCE_API).origin;
+} catch {
+  guidanceOrigin = '';
+}
+
 // Content-Security-Policy: se aplica solo en el sitio compilado (producción).
 // En desarrollo (`astro dev`) se omite para no bloquear el recargado en caliente.
 const csp = [
@@ -23,10 +31,12 @@ const csp = [
   "img-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self'${guidanceOrigin ? ' ' + guidanceOrigin : ''}`,
   "font-src 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  // Nota: frame-ancestors solo aplica como cabecera HTTP (se ignora en <meta>),
+  // por eso no se incluye aquí. La protección de framing se configura, si se
+  // desea, en el hosting (p. ej. cabeceras de Vercel).
   'upgrade-insecure-requests',
 ].join('; ');
 

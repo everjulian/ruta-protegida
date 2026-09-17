@@ -107,8 +107,6 @@ function entender(g) {
     `<div class="case-chip"><span class="icon-box">${icon(c.icon)}</span><div><strong>${c.short}</strong><p>${c.title}</p></div><button class="link-button" data-action="change-case">Cambiar</button></div>` +
     questionsHtml +
     signalsBlock(g) +
-    actionsBlock(g, true) +
-    aiNote(g) +
     navRow('Preparar evidencia', !requiredAnswered())
   );
 }
@@ -118,7 +116,6 @@ function signalsBlock(g) {
   const signals = g?.signals || [];
   if (!signals.length) return '';
   return (
-    (g.intro ? `<p class="ai-intro">${g.intro}</p>` : '') +
     `<div class="identify-card"><span class="eyebrow">LO QUE IDENTIFICAMOS HASTA AHORA</span>
       <ul class="signal-list">${signals
         .map(
@@ -131,14 +128,18 @@ function signalsBlock(g) {
   );
 }
 
-// "Qué puedes hacer ahora" (acciones con prioridad)
-function actionsBlock(g, preview = false) {
-  const list = g?.actions || [];
+// "Qué puedes hacer ahora": acciones ordenadas por prioridad. Solo se marca lo
+// prioritario (el resto va en orden, sin etiquetas que confundan).
+function actionsBlock(g) {
+  const rank = { alta: 0, media: 1, baja: 2 };
+  const list = [...(g?.actions || [])].sort(
+    (a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3),
+  );
   if (!list.length) return '';
-  const items = (preview ? list.slice(0, 3) : list)
+  const items = list
     .map(
       (a) =>
-        `<li class="action-item ${a.priority === 'alta' ? 'urgent' : ''}">${icon(a.priority === 'alta' ? 'alert' : 'check')}<div><strong>${a.text}</strong>${a.detail ? `<p>${a.detail}</p>` : ''}</div><span class="prio prio-${a.priority}">${a.priority}</span></li>`,
+        `<li class="action-item ${a.priority === 'alta' ? 'urgent' : ''}">${icon(a.priority === 'alta' ? 'alert' : 'check')}<div><strong>${a.text}</strong>${a.detail ? `<p>${a.detail}</p>` : ''}</div>${a.priority === 'alta' ? '<span class="prio prio-alta">Prioritario</span>' : ''}</li>`,
     )
     .join('');
   return `<div class="actions-card"><h3>Qué puedes hacer ahora</h3><ul class="action-list">${items}</ul></div>`;
@@ -200,18 +201,24 @@ function conocer(g) {
 // --- FASE 4 · ACTUAR ---------------------------------------------------------
 function actuar(g) {
   const c = currentCase();
+  const high = g?.cta?.urgency === 'high';
+  const level = high
+    ? 'Por lo que describes, sería recomendable orientarte pronto con CEPVVS.'
+    : g?.signals?.length
+      ? 'Hay algunos elementos que conviene revisar con calma; un buen paso es consultar con CEPVVS cuando puedas.'
+      : 'Con lo que compartiste no aparecen señales de urgencia. Puedes informarte y consultar cuando quieras.';
   return (
     heading(
       'ACTUAR',
-      'No tienes que atravesar esto solo',
-      'CEPVVS puede orientarte gratuitamente para revisar tu situación y entender tus opciones.',
+      'Tu lectura y tu siguiente paso',
+      'Un cierre con lo esencial de tu caso. Es orientación informativa, no una conclusión jurídica.',
     ) +
+    `<div class="conclusion-card">${g?.intro ? `<p class="conclusion-lead">${g.intro}</p>` : ''}<p class="conclusion-level">${icon(high ? 'alert' : 'heart')}<span>${level}</span></p></div>` +
     `<div class="finish-card"><h3>Tu punto de partida</h3>
        <div class="summary-row">${icon(c.icon)}<span>${c.title}</span></div>
        <div class="summary-row">${icon('folder')}<span>${state.evidence.size ? state.evidence.size + ' tipos de evidencia por conservar.' : 'Puedes consultar aunque todavía no tengas documentos.'}</span></div>
-       <div class="summary-row">${icon('shield')}<span>Conociste protecciones que podrían aplicar.</span></div>
      </div>` +
-    actionsBlock(g, false) +
+    actionsBlock(g) +
     aiNote(g) +
     `<div class="actions">${button('Hablar con orientación jurídica ' + icon('arrow'), 'contact')}${button('Ver sentencias clave', 'library', 'secondary')}</div>`
   );

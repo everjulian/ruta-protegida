@@ -9,19 +9,43 @@ import { cases } from '../data/cases.js';
 import { phaseOrder } from '../data/phases.js';
 import { state, phaseIndex, requiredAnswered, guidanceContext } from '../lib/state.js';
 import { getGuidance } from '../lib/guidance/index.js';
+import { buildGuidance } from '../lib/guidance/rules.js';
 import { welcome } from '../views/welcome.js';
 import { route } from '../views/route.js';
 import { library } from '../views/library.js';
 import { contact } from '../views/contact.js';
 
 // --- Cálculo de orientación + render ----------------------------------------
+// Clave de caché: la orientación solo depende del caso y las respuestas.
+function guidanceKey() {
+  return JSON.stringify({ c: state.caseId, a: state.answers });
+}
+
 async function commit(focus = true, animate = true) {
-  try {
-    state.guidance = await getGuidance(guidanceContext());
-  } catch {
-    state.guidance = null;
+  const key = guidanceKey();
+
+  // Si las respuestas no cambiaron (p. ej. navegar entre fases o marcar
+  // evidencia), reutiliza la orientación cacheada → instantáneo, sin llamar IA.
+  if (key === state._gkey && state.guidance) {
+    render(focus, animate);
+    return;
   }
+  state._gkey = key;
+
+  // Render optimista e inmediato con el motor local (0 ms).
+  state.guidance = buildGuidance(guidanceContext());
   render(focus, animate);
+
+  // Enriquecimiento con IA (si está configurada) sin bloquear la interfaz.
+  try {
+    const g = await getGuidance(guidanceContext());
+    if (guidanceKey() === key) {
+      state.guidance = g;
+      render(false, false);
+    }
+  } catch {
+    /* se mantiene el resultado local */
+  }
 }
 
 function render(focus = true, animate = true) {

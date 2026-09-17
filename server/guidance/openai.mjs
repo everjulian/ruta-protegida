@@ -41,7 +41,7 @@ export async function callModel({
       body: JSON.stringify({
         model,
         temperature: 0.2,
-        max_tokens: 700,
+        max_tokens: 550,
         // Sin herramientas ni funciones: el modelo no puede actuar.
         response_format: { type: 'json_schema', json_schema: schema },
         messages,
