@@ -291,3 +291,14 @@ dialog p{font-size:15px}
 .fb-cta{width:100%;min-height:44px;margin-top:12px;font-size:14px}
 @media(max-width:760px){.fb-banner{right:12px;left:12px;bottom:12px;width:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}body.fb-open .mobile-contact{display:none}}
 @media(prefers-reduced-motion:reduce){.fb-banner{transition:opacity .2s,visibility .2s;transform:none}}
+
+/* === Inicio: punto de entrada más claro ================================== */
+/* "Comenzar" con una animación sutil que invita al clic. */
+@keyframes attn{0%,100%{box-shadow:0 4px 10px #11509f22;transform:none}50%{box-shadow:0 9px 26px #11509f4d;transform:translateY(-2px)}}
+.button.attention{animation:attn 2.2s ease-in-out infinite}
+.button.attention:hover{animation:none}
+/* En móvil, mostrar solo lo esencial para que "Comenzar" sea obvio. */
+@media(max-width:760px){
+  .welcome .route-preview{display:none}
+  .trust-row{display:none}
+}
