@@ -1,0 +1,17 @@
+---
+// Página principal (SPA de una sola ruta). El contenido dinámico de <main>
+// lo renderiza el script del cliente en src/scripts/main.js.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import NoticeDialog from '../components/NoticeDialog.astro';
+---
+
+<BaseLayout>
+  <Header />
+  <main id="main" tabindex="-1"></main>
+  <Footer />
+  <NoticeDialog />
+</BaseLayout>
+
+<script src="../scripts/main.js"></script>

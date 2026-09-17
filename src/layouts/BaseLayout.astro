@@ -1,0 +1,59 @@
+---
+// Layout base: <head>, seguridad y estilos globales.
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Ruta Protegida · Fundación CEPVVS',
+  description = 'Ruta Protegida: orientación sobre VIH y derechos laborales en Ecuador. Identifica señales, prepara evidencia y contacta a la Fundación CEPVVS.',
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+
+// Content-Security-Policy: se aplica solo en el sitio compilado (producción).
+// En desarrollo (`astro dev`) se omite para no bloquear el recargado en caliente.
+const csp = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
+  "connect-src 'self'",
+  "font-src 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  'upgrade-insecure-requests',
+].join('; ');
+
+const favicon =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2311509F'/%3E%3Cpath d='M16 6l9 4v7c0 5-9 10-9 10S7 22 7 17v-7z' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='m11 16 3 3 7-7' fill='none' stroke='%23F191BC' stroke-width='2'/%3E%3C/svg%3E";
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#11509F" />
+    <meta name="description" content={description} />
+    {import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={csp} />}
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content="es_EC" />
+    <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <a class="skip" href="#main">Ir al contenido</a>
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,5 @@
+# https://securitytxt.org/
+# Canal para reportar vulnerabilidades de seguridad de este sitio.
+Contact: https://cepvvs.odoo.com/
+Preferred-Languages: es
+Expires: 2027-09-16T00:00:00.000Z

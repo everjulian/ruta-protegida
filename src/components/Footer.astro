@@ -1,0 +1,16 @@
+---
+// Pie de página + barra de contacto fija para móvil.
+const year = new Date().getFullYear();
+---
+<footer>
+  <div>
+    <strong>Fundación CEPVVS</strong><span> Tus derechos, contigo.</span>
+  </div>
+  <button data-action="notice">Sobre esta guía</button>
+  <span>Ecuador · {year}</span>
+</footer>
+<div class="mobile-contact">
+  <button class="button primary" data-action="contact">
+    <span data-icon="message"></span>Hablar con CEPVVS
+  </button>
+</div>
