@@ -29,6 +29,9 @@ jobs:
 
       - name: Construir el sitio (Astro)
         uses: withastro/action@v3
+        with:
+          # Astro 7 requiere Node 22+ (la acción usa 20 por defecto).
+          node-version: 22
         env:
           # El `site` y el `base` se toman automáticamente del repositorio,
           # así no hay que editar astro.config.mjs al cambiar de repo.
