@@ -302,3 +302,10 @@ dialog p{font-size:15px}
   .welcome .route-preview{display:none}
   .trust-row{display:none}
 }
+
+/* Móvil: contacto compacto (icono) en el header; se retira la barra grande. */
+@media(max-width:760px){
+  .mobile-contact{display:none}
+  .header-contact{display:inline-flex;font-size:0;gap:0;min-height:40px;padding:9px 11px}
+  .header-contact svg{width:21px;height:21px}
+}
