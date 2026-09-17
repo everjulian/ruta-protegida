@@ -14,6 +14,7 @@ import { welcome } from '../views/welcome.js';
 import { route } from '../views/route.js';
 import { library } from '../views/library.js';
 import { contact } from '../views/contact.js';
+import { track } from '../lib/analytics.js';
 
 // --- Cálculo de orientación + render ----------------------------------------
 // Clave de caché: la orientación solo depende del caso y las respuestas.
@@ -63,6 +64,7 @@ function render(focus = true, animate = true) {
     .classList.toggle('active', state.view === 'route' || state.view === 'home');
   document.getElementById('nav-library').classList.toggle('active', state.view === 'library');
   document.querySelectorAll('[data-icon]').forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
+  syncFeedbackBanner();
   if (focus) {
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.getElementById('main').focus({ preventScroll: true });
@@ -121,6 +123,25 @@ function back() {
 }
 
 // --- Eventos -----------------------------------------------------------------
+// --- Analítica: eventos de una sola vez y control del banner de opinión ------
+function trackOnce(name) {
+  if (state.tracked[name]) return;
+  state.tracked[name] = true;
+  track(name);
+}
+
+function syncFeedbackBanner() {
+  const banner = document.getElementById('feedback-banner');
+  if (!banner) return;
+  const atEnd = state.view === 'route' && state.phase === 'actuar';
+  if (atEnd) trackOnce('flow_complete');
+  banner.classList.toggle('show', atEnd && !state.feedback.dismissed);
+}
+
+function markThanks() {
+  document.getElementById('fb-thanks')?.classList.add('show');
+}
+
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
@@ -130,6 +151,7 @@ document.addEventListener('click', (e) => {
       commit();
       break;
     case 'start':
+      trackOnce('flow_start');
       state.view = 'route';
       commit();
       break;
@@ -165,9 +187,34 @@ document.addEventListener('click', (e) => {
       document.getElementById('sentencia-' + el.dataset.index)?.scrollIntoView({ block: 'center' });
       break;
     case 'contact':
+      track('contact_click');
       state.returnView = state.view;
       state.view = 'contact';
       commit();
+      break;
+    case 'fb-help': {
+      const v = el.dataset.value;
+      state.feedback.help = v;
+      track('helpfulness_response', { valor: v });
+      document
+        .querySelectorAll('[data-action="fb-help"]')
+        .forEach((b) => b.classList.toggle('sel', b.dataset.value === v));
+      markThanks();
+      break;
+    }
+    case 'fb-rate': {
+      const r = Number(el.dataset.value);
+      state.feedback.rating = r;
+      track('rating_submit', { rating: r });
+      document
+        .querySelectorAll('[data-action="fb-rate"]')
+        .forEach((b) => b.classList.toggle('on', Number(b.dataset.value) <= r));
+      markThanks();
+      break;
+    }
+    case 'fb-close':
+      state.feedback.dismissed = true;
+      document.getElementById('feedback-banner')?.classList.remove('show');
       break;
     case 'return':
       state.view = state.returnView === 'contact' ? 'home' : state.returnView;

@@ -16,6 +16,8 @@ export const state = {
   evidence: new Set(), // ids de evidencia marcados
   returnView: 'home',
   guidance: null, // último GuidanceResult calculado por getGuidance
+  feedback: { dismissed: false, help: null, rating: 0 }, // banner de opinión (efímero)
+  tracked: {}, // marcas de eventos de una sola vez (flow_start, flow_complete)
 };
 
 /** Devuelve el caso actualmente seleccionado (o undefined). */

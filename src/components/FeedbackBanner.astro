@@ -1,0 +1,27 @@
+---
+// Banner de opinión (deslizable, tipo alerta). Aparece al final del recorrido
+// (fase "Actuar"), es OPCIONAL y no bloquea. Controlado por src/scripts/main.js.
+// No recoge datos personales: solo utilidad, estrellas y el CTA.
+---
+<aside id="feedback-banner" class="fb-banner" role="region" aria-label="Tu opinión sobre la guía">
+  <button class="fb-close" data-action="fb-close" aria-label="Cerrar comentarios">×</button>
+  <strong class="fb-title">¿Te resultó útil esta guía?</strong>
+
+  <div class="fb-help" role="group" aria-label="¿Te ayudó a entender qué puedes hacer?">
+    <button class="fb-opt" data-action="fb-help" data-value="si">Sí</button>
+    <button class="fb-opt" data-action="fb-help" data-value="parcial">Parcialmente</button>
+    <button class="fb-opt" data-action="fb-help" data-value="no">No</button>
+  </div>
+
+  <div class="fb-rate" role="group" aria-label="Califica del 1 al 5">
+    <button class="fb-star" data-action="fb-rate" data-value="1" aria-label="1 de 5">★</button>
+    <button class="fb-star" data-action="fb-rate" data-value="2" aria-label="2 de 5">★</button>
+    <button class="fb-star" data-action="fb-rate" data-value="3" aria-label="3 de 5">★</button>
+    <button class="fb-star" data-action="fb-rate" data-value="4" aria-label="4 de 5">★</button>
+    <button class="fb-star" data-action="fb-rate" data-value="5" aria-label="5 de 5">★</button>
+  </div>
+
+  <p class="fb-thanks" id="fb-thanks" role="status">¡Gracias por tu opinión!</p>
+
+  <button class="button primary fb-cta" data-action="contact">Hablar con Fundación CEPVVS</button>
+</aside>
