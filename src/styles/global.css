@@ -246,3 +246,8 @@ dialog p{font-size:15px}
   .action-cta{margin-left:0;width:100%;margin-top:4px}
   .cta-bar .button{width:100%}
 }
+
+/* Personalización con IA (informativa) */
+.ai-intro{font-size:15px;line-height:1.6;color:#3f536c;background:#f3f7fc;border:1px solid #e2ebf6;border-radius:12px;padding:14px 16px;margin:0 0 8px}
+.ai-note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:var(--muted);margin:14px 0 0}
+.ai-note svg{width:16px;height:16px;color:var(--blue);flex-shrink:0;margin-top:1px}

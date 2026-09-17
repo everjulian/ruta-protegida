@@ -7,9 +7,13 @@
 // vistas no se tocan.
 // -----------------------------------------------------------------------------
 import { localRulesProvider } from './rules.js';
+import { remoteProvider } from './remote.js';
 
-/** Proveedor activo. Cambiar aquí para enchufar IA en el futuro. */
-const provider = localRulesProvider;
+// Proveedor activo:
+// - Si PUBLIC_GUIDANCE_API está configurado, usa el endpoint server-side
+//   (con IA) y cae al motor local ante cualquier fallo.
+// - Si no, usa solo el motor determinístico local.
+const provider = import.meta.env.PUBLIC_GUIDANCE_API ? remoteProvider : localRulesProvider;
 
 /**
  * Devuelve la orientación para un contexto dado.

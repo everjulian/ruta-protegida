@@ -68,6 +68,22 @@ no necesitas editar `astro.config.mjs` al cambiar de repo. Si trabajas con un
 
 ---
 
+## Capa de IA (opcional)
+
+Orientación personalizada con OpenAI, **server-side**. Es opcional: si no está
+configurada o falla, la ruta funciona con el motor determinístico local.
+
+- Endpoint agnóstico de plataforma en `server/` (fuera de `src/`, nunca llega al
+  navegador). Se despliega en Vercel / Netlify / Cloudflare / Node.
+- El cliente lo usa vía `PUBLIC_GUIDANCE_API`; la clave `OPENAI_API_KEY` vive solo
+  en el servidor. Configuración en `.env` (ver `.env.example`).
+- Detalle completo en [`docs/SECURITY.md`](docs/SECURITY.md).
+
+```bash
+node --env-file=.env server/dev-server.mjs   # endpoint local
+npm test                                     # pruebas de seguridad (offline)
+```
+
 ## Seguridad y privacidad
 
 - **No se recogen datos personales**: nombre, diagnóstico ni respuestas salen del navegador.

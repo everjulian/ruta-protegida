@@ -108,11 +108,19 @@ function entender(g) {
       'Cada respuesta te muestra por qué ese dato puede ser relevante. No sacamos conclusiones.',
     ) +
     `<div class="case-chip"><span class="icon-box">${icon(c.icon)}</span><div><strong>${c.short}</strong><p>${c.title}</p></div><button class="link-button" data-action="change-case">Cambiar</button></div>` +
+    (g?.intro ? `<p class="ai-intro">${g.intro}</p>` : '') +
     questionsHtml +
     summaryBlock(g) +
     actionsBlock(g, true) +
+    aiNote(g) +
     navRow('Preparar evidencia', !requiredAnswered())
   );
+}
+
+// Nota visible cuando la orientación fue personalizada con IA.
+function aiNote(g) {
+  if (g?.meta?.source !== 'ai' || !g?.note) return '';
+  return `<p class="ai-note">${icon('help')}<span>${g.note}</span></p>`;
 }
 
 // "Lo que identificamos hasta ahora" (aparece tras ≥2 respuestas)
@@ -209,6 +217,7 @@ function actuar(g) {
        <div class="summary-row">${icon('shield')}<span>Conociste protecciones que podrían aplicar.</span></div>
      </div>` +
     actionsBlock(g, false) +
+    aiNote(g) +
     `<div class="actions">${button('Hablar con orientación jurídica ' + icon('arrow'), 'contact')}${button('Ver sentencias clave', 'library', 'secondary')}</div>`
   );
 }

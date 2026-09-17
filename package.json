@@ -10,7 +10,10 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "guidance:dev": "node --env-file=.env server/dev-server.mjs",
+    "guidance:demo": "node scripts/guidance.demo.mjs"
   },
   "engines": {
     "node": "^20.19.0 || ^22.12.0 || >=24"
