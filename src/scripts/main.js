@@ -135,7 +135,10 @@ function syncFeedbackBanner() {
   if (!banner) return;
   const atEnd = state.view === 'route' && state.phase === 'actuar';
   if (atEnd) trackOnce('flow_complete');
-  banner.classList.toggle('show', atEnd && !state.feedback.dismissed);
+  const showing = atEnd && !state.feedback.dismissed;
+  banner.classList.toggle('show', showing);
+  // Oculta la barra fija de contacto (móvil) mientras el banner está abierto.
+  document.body.classList.toggle('fb-open', showing);
 }
 
 function markThanks() {
