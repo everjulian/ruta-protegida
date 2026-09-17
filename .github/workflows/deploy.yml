@@ -37,6 +37,10 @@ jobs:
           # así no hay que editar astro.config.mjs al cambiar de repo.
           SITE_URL: ${{ steps.pages.outputs.origin }}
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # URL del endpoint de IA (no es secreto). Se activa definiendo la
+          # variable de repositorio PUBLIC_GUIDANCE_API en Settings → Variables.
+          # Si está vacía, el sitio usa solo el motor determinístico local.
+          PUBLIC_GUIDANCE_API: ${{ vars.PUBLIC_GUIDANCE_API }}
 
   deploy:
     needs: build
