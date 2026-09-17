@@ -17,30 +17,44 @@ export const evidenceCatalog = [
   { id: 'documentos_despido', icon: 'folder', label: 'Documentos de despido', help: 'Aviso de terminación y notificaciones.' },
   { id: 'finiquito', icon: 'file', label: 'Finiquito y pagos', help: 'Finiquito y comprobantes de pago.' },
   { id: 'solicitud_datos', icon: 'lock', label: 'Solicitud de datos de salud', help: 'La solicitud o el registro de cómo te la hicieron.' },
+  { id: 'recomendacion_medica', icon: 'health', label: 'Recomendaciones médicas', help: 'Indicaciones de tu equipo de salud sobre tus tareas.' },
 ];
 
 // Reglas de priorización: la primera coincidencia ordena la lista.
 // `when`: { any } | { anyFlag:[...] } | { case:'id' }
+// Se evalúan en orden: la primera coincidencia define la prioridad.
 export const evidenceRules = [
-  {
-    when: { anyFlag: ['cambio_funciones'] },
-    prioritize: ['evaluaciones', 'descripcion_puesto', 'comunicaciones_cambio', 'fechas'],
-  },
   {
     when: { anyFlag: ['despido'] },
     prioritize: ['documentos_despido', 'finiquito', 'correos', 'fechas'],
   },
   {
-    when: { anyFlag: ['presion'] },
-    prioritize: ['mensajes', 'correos', 'testigos', 'fechas'],
+    when: { anyFlag: ['posible_despido'] },
+    prioritize: ['memorandos', 'correos', 'comunicaciones_cambio', 'fechas'],
   },
   {
-    when: { anyFlag: ['divulgacion', 'solicitud_datos'] },
+    when: { anyFlag: ['divulgacion', 'solicitud_datos', 'solicitud_prueba', 'solicitud_revelar', 'solicitud_historia'] },
     prioritize: ['mensajes', 'correos', 'solicitud_datos', 'testigos'],
   },
   {
-    when: { anyFlag: ['salud'] },
-    prioritize: ['permisos_medicos', 'evaluaciones', 'fechas'],
+    when: { anyFlag: ['presion', 'firma_proxima', 'amenaza'] },
+    prioritize: ['mensajes', 'correos', 'testigos', 'fechas'],
+  },
+  {
+    when: { anyFlag: ['cambio_evaluaciones'] },
+    prioritize: ['evaluaciones', 'correos', 'fechas', 'testigos'],
+  },
+  {
+    when: { anyFlag: ['cambio_trato'] },
+    prioritize: ['testigos', 'mensajes', 'correos', 'fechas'],
+  },
+  {
+    when: { anyFlag: ['cambio_funciones', 'cambio_condiciones'] },
+    prioritize: ['evaluaciones', 'descripcion_puesto', 'comunicaciones_cambio', 'fechas'],
+  },
+  {
+    when: { anyFlag: ['salud', 'necesita_permisos'] },
+    prioritize: ['recomendacion_medica', 'permisos_medicos', 'fechas'],
   },
 ];
 

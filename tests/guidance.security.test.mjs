@@ -21,7 +21,7 @@ const REQ = (body, headers = {}) =>
 const validInput = () => ({
   caseId: 'trato',
   phase: 'entender',
-  answers: { known: 'Sí', timing: 'Después' },
+  answers: { trato_known: 'Sí', trato_timing: 'Después' },
 });
 
 // Salida del modelo en el formato del system prompt.
@@ -154,7 +154,7 @@ test('caso desconocido → 422', async () => {
 
 test('respuesta fuera de catálogo → 422', async () => {
   const handler = createHandler({ env: {} });
-  const res = await handler(REQ({ caseId: 'trato', phase: 'entender', answers: { known: 'MALICIOSO' } }));
+  const res = await handler(REQ({ caseId: 'trato', phase: 'entender', answers: { trato_known: 'MALICIOSO' } }));
   assert.equal(res.status, 422);
 });
 
@@ -197,7 +197,7 @@ test('con menos de 2 respuestas no llama al modelo (motor local)', async () => {
       return validModelOutput();
     },
   });
-  const res = await handler(REQ({ caseId: 'trato', phase: 'entender', answers: { known: 'Sí' } }));
+  const res = await handler(REQ({ caseId: 'trato', phase: 'entender', answers: { trato_known: 'Sí' } }));
   const data = await res.json();
   assert.equal(data.meta.source, 'local-rules');
   assert.equal(called, false);

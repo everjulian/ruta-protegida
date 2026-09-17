@@ -7,21 +7,26 @@
 // La clave de OpenAI vive únicamente en el servidor; aquí nunca se toca.
 // -----------------------------------------------------------------------------
 import { buildGuidance } from './rules.js';
+import { questionsForCase } from '../../data/questions.js';
 
 const API_BASE = (import.meta.env.PUBLIC_GUIDANCE_API || '').replace(/\/$/, '');
 const TIMEOUT_MS = 9000;
-// Nº de preguntas requeridas: por debajo de esto no vale la pena llamar a la IA.
-const MIN_ANSWERS = 4;
 
 function isGuidanceV2(d) {
   return d && typeof d === 'object' && Array.isArray(d.signals) && Array.isArray(d.actions);
 }
 
+// La IA se llama solo cuando están respondidas todas las preguntas del caso
+// (antes, el motor local responde al instante y sin costo).
+function allAnswered(context) {
+  const required = questionsForCase(context?.caseId).filter((q) => q.required);
+  return required.length > 0 && required.every((q) => context?.answers?.[q.id]);
+}
+
 export const remoteProvider = {
   async getGuidance(context) {
     const local = () => buildGuidance(context);
-    const answers = context?.answers || {};
-    if (!API_BASE || Object.keys(answers).length < MIN_ANSWERS) return local();
+    if (!API_BASE || !allAnswered(context)) return local();
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
