@@ -24,6 +24,7 @@ export async function callModel({
   model = 'gpt-4o-mini',
   timeoutMs = 8000,
   fetchImpl = fetch,
+  schema = OUTPUT_JSON_SCHEMA,
 }) {
   if (!apiKey) throw new Error('missing_api_key');
 
@@ -42,7 +43,7 @@ export async function callModel({
         temperature: 0.2,
         max_tokens: 700,
         // Sin herramientas ni funciones: el modelo no puede actuar.
-        response_format: { type: 'json_schema', json_schema: OUTPUT_JSON_SCHEMA },
+        response_format: { type: 'json_schema', json_schema: schema },
         messages,
       }),
     });

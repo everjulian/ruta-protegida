@@ -136,32 +136,70 @@ export function allowedForContext(answers) {
   };
 }
 
-// Esquema JSON estricto para "structured outputs" de OpenAI.
-export const OUTPUT_JSON_SCHEMA = {
-  name: 'ruta_protegida_guidance',
-  strict: true,
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      intro: { type: 'string' },
-      micro: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            questionId: { type: 'string' },
-            text: { type: 'string' },
+/**
+ * Construye el esquema JSON estricto para "structured outputs" de OpenAI,
+ * fijando por enum los valores válidos (ids de preguntas y de acciones) para
+ * que el modelo no pueda inventar ni confundir etiquetas con ids.
+ * @param {{questionIds:Set<string>, actionIds:Set<string>}} allowed
+ */
+export function buildOutputSchema(allowed) {
+  const qIds = [...(allowed?.questionIds || [])];
+  const aIds = [...(allowed?.actionIds || [])];
+  const questionIdField = qIds.length
+    ? { type: 'string', enum: qIds, description: 'Id de la pregunta respondida.' }
+    : { type: 'string' };
+  const actionItem = aIds.length
+    ? { type: 'string', enum: aIds }
+    : { type: 'string' };
+
+  return {
+    name: 'ruta_protegida_guidance',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        intro: {
+          type: 'string',
+          description:
+            'Encuadre breve (1-2 frases), empático y prudente. Sin conclusiones jurídicas.',
+        },
+        micro: {
+          type: 'array',
+          description:
+            'Una explicación breve por cada pregunta respondida: por qué ESE dato puede ser relevante. No repitas el texto de la pregunta.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              questionId: questionIdField,
+              text: {
+                type: 'string',
+                description:
+                  'Explicación prudente de 1-2 frases. Usa "puede ser relevante", "conviene revisar". No afirmes discriminación.',
+              },
+            },
+            required: ['questionId', 'text'],
           },
-          required: ['questionId', 'text'],
+        },
+        review: {
+          type: 'array',
+          description: 'Qué conviene revisar (frases breves y prudentes).',
+          items: { type: 'string' },
+        },
+        actionOrder: {
+          type: 'array',
+          description:
+            'IDs de acciones del catálogo (campo id), en orden de prioridad recomendado. Usa EXACTAMENTE los valores id, no las etiquetas.',
+          items: actionItem,
         },
       },
-      review: { type: 'array', items: { type: 'string' } },
-      actionOrder: { type: 'array', items: { type: 'string' } },
+      required: ['intro', 'micro', 'review', 'actionOrder'],
     },
-    required: ['intro', 'micro', 'review', 'actionOrder'],
-  },
-};
+  };
+}
+
+// Esquema por defecto (sin enums) para compatibilidad.
+export const OUTPUT_JSON_SCHEMA = buildOutputSchema({});
 
 export { FORBIDDEN };

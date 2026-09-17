@@ -7,7 +7,7 @@
 // merge o fallback. Nunca ejecuta acciones ni registra contenido sensible.
 // -----------------------------------------------------------------------------
 import { questions, actions as allActions, allowedLegalForCase } from './data.mjs';
-import { validateInput, validateModelOutput, allowedForContext } from './schema.mjs';
+import { validateInput, validateModelOutput, allowedForContext, buildOutputSchema } from './schema.mjs';
 import { cleanUserText, withinSizeLimit } from './sanitize.mjs';
 import { buildMessages } from './prompt.mjs';
 import { callModel as defaultCallModel } from './openai.mjs';
@@ -140,8 +140,15 @@ export function createHandler({ env = {}, callModel = defaultCallModel, rateLimi
         fuentes: allowedLegalForCase(ctx.caseId),
       });
 
-      const modelOut = await callModel({ messages, apiKey, model, timeoutMs });
-      const valid = validateModelOutput(modelOut, allowedForContext(ctx.answers));
+      const allowed = allowedForContext(ctx.answers);
+      const modelOut = await callModel({
+        messages,
+        apiKey,
+        model,
+        timeoutMs,
+        schema: buildOutputSchema(allowed),
+      });
+      const valid = validateModelOutput(modelOut, allowed);
       if (!valid.ok) {
         logError('output_schema_invalid');
         return json({ ...base, note: INFORMATIVE_NOTE }, 200, origin); // fallback
