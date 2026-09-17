@@ -30,8 +30,9 @@ const csp = [
   "object-src 'none'",
   "img-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self'",
-  `connect-src 'self'${guidanceOrigin ? ' ' + guidanceOrigin : ''}`,
+  // Umami (analítica anónima): permitir su script y el envío de eventos.
+  "script-src 'self' https://cloud.umami.is",
+  `connect-src 'self' https://cloud.umami.is${guidanceOrigin ? ' ' + guidanceOrigin : ''}`,
   "font-src 'self'",
   "form-action 'self'",
   // Nota: frame-ancestors solo aplica como cabecera HTTP (se ignora en <meta>),
@@ -61,6 +62,13 @@ const favicon =
     <title>{title}</title>
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href={favicon} />
+    <!-- Analítica anónima y sin cookies (Umami). No registra datos personales. -->
+    <script
+      is:inline
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="5a4fa1af-cbe3-40b3-916f-14dc44f3d89b"
+    ></script>
   </head>
   <body>
     <a class="skip" href="#main">Ir al contenido</a>
